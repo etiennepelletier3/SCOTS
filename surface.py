@@ -3,7 +3,8 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-
+from scipy.sparse import lil_matrix
+from scipy.sparse.linalg import spsolve
 
 def mirror_mtx(mtx, xm0, ym0, zm0, Omx, Omy, scamerapx):
     xm_mtx = np.zeros_like(mtx)
@@ -69,6 +70,20 @@ def create_mask(img_w, img_h, radius, center_x, center_y):
                 mask[i, j] = True
     return mask
 
+def crop_to_unmasked(masked_array):
+    mask = masked_array.mask
+    if not np.any(~mask):
+        raise ValueError("No unmasked regions in the array.")
+    
+    # Find the bounding box of the unmasked region
+    unmasked_indices = np.where(~mask)
+    min_row, max_row = np.min(unmasked_indices[0]), np.max(unmasked_indices[0])
+    min_col, max_col = np.min(unmasked_indices[1]), np.max(unmasked_indices[1])
+    
+    # Crop the array to the bounding box
+    cropped_array = masked_array[min_row:max_row + 1, min_col:max_col + 1]
+    
+    return cropped_array
 
 # Define the paths
 measurement_data_path = 'Measurement data/Test 2/'
@@ -134,10 +149,10 @@ m_mtx = mirror_mtx(uwrp_phase_x, xm0, ym0, zm0, Omx, Omy, scamerapx)
 
 # Create the screen matrix
 s_mtx = screen_mtx(uwrp_phase_x, uwrp_phase_y, xs0, ys0, zs0, pxperfrng, sscreenpx)
-plt.figure()
-plt.imshow(s_mtx[0,:, :], cmap='jet')
-plt.colorbar()
-plt.title('Screen Matrix')
+# plt.figure()
+# plt.imshow(s_mtx[0,:, :], cmap='jet')
+# plt.colorbar()
+# plt.title('Screen Matrix')
 # Calculate the ray vectors
 xc, yc, zc = 0, 0, 0
 m2c, m2s = ray_vec(m_mtx, s_mtx, xc, yc, zc)
@@ -147,6 +162,7 @@ n_mtx = surface_normal(m2c, m2s)
 
 # Calculate the surface slopes
 slope_x, slope_y = surface_slope(n_mtx)
+
 
 # Apply the mask to the slope arrays
 slope_x = np.ma.array(slope_x, mask=~mask)
@@ -165,11 +181,37 @@ plt.title('Y Slope')
 plt.tight_layout()
 plt.show()
 
+fig = plt.figure(figsize=(14, 6))
+
+# Define X and Y
+X = np.arange(slope_x.shape[1])
+Y = np.arange(slope_x.shape[0])
+X, Y = np.meshgrid(X, Y)
+
+# First subplot for Z1
+ax1 = fig.add_subplot(121, projection='3d')
+ax1.plot_surface(X, Y, slope_x, cmap='viridis')
+ax1.set_title('X Slope')
+ax1.set_xlabel('X axis')
+ax1.set_ylabel('Y axis')
+ax1.set_zlabel('Z axis')
+
+# Second subplot for Z2
+ax2 = fig.add_subplot(122, projection='3d')
+ax2.plot_surface(X, Y, slope_y, cmap='plasma')
+ax2.set_title('Y Slope')
+ax2.set_xlabel('X axis')
+ax2.set_ylabel('Y axis')
+ax2.set_zlabel('Z axis')
+
+plt.show()
+
 
 
 # Save the slopes
 np.save(results_path+"slope_x.npy", slope_x.data)
 np.save(results_path+"slope_y.npy", slope_y.data)
+
 
 # Integrate the slopes
 int_slope_x = np.cumsum(slope_x, axis=1)
@@ -177,13 +219,24 @@ int_slope_y = np.cumsum(slope_y, axis=0)
 
 surface = int_slope_x + int_slope_y
 
+
+# surface_southwell = southwell_method(slope_x, slope_y, scamerapx, scamerapx)
+
 # Plot the surface
+plt.figure()
+plt.subplot(2, 2, 1)
 plt.imshow(surface, cmap='jet')
-clb = plt.colorbar()
-clb.ax.set_title('mm')
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
+plt.colorbar()
+plt.title('Surface')
+# plt.subplot(2, 2, 2)
+# plt.imshow(surface_southwell, cmap='jet')
+# plt.colorbar()
+# plt.title('Surface Southwell')
+
+
+plt.tight_layout()
 plt.show()
+
 
 # Save the surface
 np.save(results_path+"surface.npy", surface.data)
