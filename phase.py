@@ -98,10 +98,10 @@ def calculate_wrapped_phase(mask, Ixs, Iys, wrp_phase_x, wrp_phase_y, theta, ini
             if mask[i, j]:
                 print(f"Processing pixel ({i}, {j})")
                 intensity_values_x = Ixs[:, i, j]
-                result_x = minimize(objective_function, initial_guess, args=(theta, intensity_values_x))
+                result_x = minimize(objective_function, initial_guess, args=(theta, intensity_values_x), method='Nelder-Mead')
                 wrp_phase_x[i, j] = result_x.x[0]
                 intensity_values_y = Iys[:, i, j]
-                result_y = minimize(objective_function, initial_guess, args=(theta, intensity_values_y))
+                result_y = minimize(objective_function, initial_guess, args=(theta, intensity_values_y), method='Nelder-Mead')
                 wrp_phase_y[i, j] = result_y.x[0]
 
     return wrp_phase_x, wrp_phase_y

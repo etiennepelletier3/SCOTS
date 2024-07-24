@@ -2,8 +2,7 @@ import numpy as np
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.special import factorial
-from scipy.optimize import curve_fit
+from scipy.optimize import minimize
 
 
 def mirror_mtx(mtx, xm0, ym0, zm0, Omx, Omy, scamerapx):
@@ -11,7 +10,7 @@ def mirror_mtx(mtx, xm0, ym0, zm0, Omx, Omy, scamerapx):
     ym_mtx = np.zeros_like(mtx)
     zm_mtx = np.zeros_like(mtx)
     for j in range(mtx.shape[1]):
-        xm_mtx[:, j] = xm0 - scamerapx*(j-Omx)
+        xm_mtx[:, j] = xm0 + scamerapx*(j-Omx)
     for i in range(mtx.shape[0]):
         ym_mtx[i, :] = ym0 - scamerapx*(i-Omy)
     zm_mtx += zm0
@@ -24,8 +23,8 @@ def screen_mtx(uwrp_phase_x, uwrp_phase_y, xs0, ys0, zs0, pxperfrng, sscreenpx):
     ys_mtx = np.zeros_like(uwrp_phase_y)
     zs_mtx = np.zeros_like(uwrp_phase_x)
 
-    xs_mtx = xs0 + 2*np.pi*uwrp_phase_x*pxperfrng*sscreenpx
-    ys_mtx = ys0 + 2*np.pi*uwrp_phase_y*pxperfrng*sscreenpx
+    xs_mtx = xs0 + uwrp_phase_x*pxperfrng*sscreenpx/(2*np.pi)
+    ys_mtx = ys0 + uwrp_phase_y*pxperfrng*sscreenpx/(2*np.pi)
     zs_mtx += zs0
     
     s_mtx = np.stack((xs_mtx, ys_mtx, zs_mtx), axis=0)
@@ -71,72 +70,6 @@ def create_mask(img_w, img_h, radius, center_x, center_y):
     return mask
 
 
-# Function to compute the radial Zernike polynomial
-def zernike_radial(n, m, rho):
-    if (n - m) % 2:
-        return np.zeros_like(rho)
-    radial_poly = np.zeros_like(rho)
-    for k in range((n - m) // 2 + 1):
-        radial_poly += rho ** (n - 2 * k) * (-1) ** k * factorial(n - k) / (
-            factorial(k) * factorial((n + m) // 2 - k) * factorial((n - m) // 2 - k)
-        )
-    return radial_poly
-
-# Function to compute the full Zernike polynomial
-def zernike_polynomial(n, m, rho, theta):
-    if m >= 0:
-        return zernike_radial(n, m, rho) * np.cos(m * theta)
-    else:
-        return zernike_radial(n, -m, rho) * np.sin(-m * theta)
-
-# Function to fit Zernike coefficients
-def fit_zernike_coefficients(height_map, mask, N):
-    y, x = np.indices(height_map.shape)
-    y = y - np.mean(y)
-    x = x - np.mean(x)
-    rho = np.sqrt(x**2 + y**2) / np.max(np.sqrt(x**2 + y**2))
-    theta = np.arctan2(y, x)
-
-    valid_mask = (rho <= 1) & (~mask)
-    rho = rho[valid_mask]
-    theta = theta[valid_mask]
-    height_values = height_map[valid_mask]
-
-    def zernike_sum(rho_theta, *coeffs):
-        rho, theta = rho_theta
-        result = np.zeros_like(rho)
-        index = 0
-        for n in range(N + 1):
-            for m in range(-n, n + 1, 2):
-                result += coeffs[index] * zernike_polynomial(n, m, rho, theta)
-                index += 1
-        return result
-
-    initial_guess = np.zeros((N + 1) * (N + 2) // 2)
-    rho_theta = np.vstack((rho, theta))
-    coeffs, _ = curve_fit(zernike_sum, rho_theta, height_values, p0=initial_guess)
-
-    return coeffs
-
-# Function to reconstruct the surface from Zernike coefficients
-def reconstruct_surface(coeffs, N, grid_size):
-    y, x = np.indices((grid_size, grid_size))
-    y = y - np.mean(y)
-    x = x - np.mean(x)
-    rho = np.sqrt(x**2 + y**2) / np.max(np.sqrt(x**2 + y**2))
-    theta = np.arctan2(y, x)
-
-    reconstructed = np.zeros_like(rho)
-    index = 0
-    for n in range(N + 1):
-        for m in range(-n, n + 1, 2):
-            reconstructed += coeffs[index] * zernike_polynomial(n, m, rho, theta)
-            index += 1
-
-    reconstructed[rho > 1] = np.nan  # Mask out values outside the unit disk
-    return reconstructed
-
-
 # Define the paths
 measurement_data_path = 'Measurement data/Test 2/'
 calibration_data_path = 'Calibration data/Test 2/'
@@ -146,7 +79,7 @@ results_path = 'Results/Test 2/'
 # Load parameters from JSON file
 with open(params_path, "r") as file:
     json_data = json.load(file)
-scamerapx = json_data['scamerapx']
+scamerapx = json_data['scamerapx'] * 1e3
 
 sscreenpx = json_data['sscreenpx']
 pxperfrng = json_data['pxperfrng']
@@ -164,6 +97,8 @@ mask_center_y = json_data['mask_center_y']
 tm_vec = json_data['mirror_tvec']
 ts_vec = json_data['screen_tvec']
 
+manual_geometry = False
+
 # Load unwrapped phases
 uwrp_phase_x = np.load(results_path + "uwrp_phase_x.npy")
 uwrp_phase_y = np.load(results_path + "uwrp_phase_y.npy")
@@ -176,18 +111,33 @@ mask = create_mask(w, h, mask_radius, mask_center_x, mask_center_y)
 uwrp_phase_x = np.ma.array(uwrp_phase_x, mask=~mask)
 uwrp_phase_y = np.ma.array(uwrp_phase_y, mask=~mask)
 
+if manual_geometry:
+    # Define the parameters
+    xm0 = 0.0010983523035546735
+    ym0 = -0.006166640536640525
+    zm0 = 0.6446248975662893
+    xs0 = 0.6516130693249402
+    ys0 = 0.042220644356549965
+    zs0 = 0.001
+
+else:
+    xm0 = tm_vec[0][0] * 1e3 # Convert to mm
+    ym0 = tm_vec[1][0] * 1e3 # Convert to mm
+    zm0 = tm_vec[2][0] * 1e3 # Convert to mm
+
+    xs0 = ts_vec[0][0] * 1e3 # Convert to mm
+    ys0 = ts_vec[1][0] * 1e3 # Convert to mm
+    zs0 = ts_vec[2][0] * 1e3 # Convert to mm
+
 # Create the mirror matrix
-xm0 = tm_vec[0][0]
-ym0 = tm_vec[1][0]
-zm0 = tm_vec[2][0]
 m_mtx = mirror_mtx(uwrp_phase_x, xm0, ym0, zm0, Omx, Omy, scamerapx)
 
 # Create the screen matrix
-xs0 = ts_vec[0][0]
-ys0 = ts_vec[1][0]
-zs0 = ts_vec[2][0]
 s_mtx = screen_mtx(uwrp_phase_x, uwrp_phase_y, xs0, ys0, zs0, pxperfrng, sscreenpx)
-
+plt.figure()
+plt.imshow(s_mtx[0,:, :], cmap='jet')
+plt.colorbar()
+plt.title('Screen Matrix')
 # Calculate the ray vectors
 xc, yc, zc = 0, 0, 0
 m2c, m2s = ray_vec(m_mtx, s_mtx, xc, yc, zc)
@@ -215,6 +165,8 @@ plt.title('Y Slope')
 plt.tight_layout()
 plt.show()
 
+
+
 # Save the slopes
 np.save(results_path+"slope_x.npy", slope_x.data)
 np.save(results_path+"slope_y.npy", slope_y.data)
@@ -236,19 +188,45 @@ plt.show()
 # Save the surface
 np.save(results_path+"surface.npy", surface.data)
 
-N = 3  # Maximum radial degree
-coeffs = fit_zernike_coefficients(surface.data, surface.mask, N)
-reconstructed_surface = reconstruct_surface(coeffs, N, surface.shape[0])
+def calculate_surface(xm0, ym0, zm0, xs0, ys0, zs0):
+     # Create the mirror matrix
+    m_mtx = mirror_mtx(uwrp_phase_x, xm0, ym0, zm0, Omx, Omy, scamerapx)
 
-print("Zernike coefficients:")
-print(coeffs)
+    # Create the screen matrix
+    s_mtx = screen_mtx(uwrp_phase_x, uwrp_phase_y, xs0, ys0, zs0, pxperfrng, sscreenpx)
 
-# Plot the reconstructed surface
-plt.imshow(reconstructed_surface, cmap='jet')
-plt.colorbar(label='mm')
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
-plt.show()
+    # Calculate the ray vectors
+    xc, yc, zc = 0, 0, 0
+    m2c, m2s = ray_vec(m_mtx, s_mtx, xc, yc, zc)
+
+    # Calculate the surface normal vectors
+    n_mtx = surface_normal(m2c, m2s)
+
+    # Calculate the surface slopes
+    slope_x, slope_y = surface_slope(n_mtx)
+
+    # Apply the mask to the slope arrays
+    slope_x = np.ma.array(slope_x, mask=~mask)
+    slope_y = np.ma.array(slope_y, mask=~mask)
+
+    int_slope_x = np.cumsum(slope_x, axis=1)
+    int_slope_y = np.cumsum(slope_y, axis=0)
+
+    surface = int_slope_x + int_slope_y
+
+    return surface
+
+def peak_to_peak_val(params):
+    xm0, ym0, zm0, xs0, ys0, zs0 = params
+    surface = calculate_surface(xm0, ym0, zm0, xs0, ys0, zs0)
+    print(np.ptp(surface))
+    return np.ptp(surface)
 
 
+def optimize_parameters():
+    initial_guesses = [xm0, ym0, zm0, xs0, ys0, zs0]  # Initial guesses for xm0, ym0, zm0, xs0, ys0, zs0
+    result = minimize(peak_to_peak_val, initial_guesses, options={'maxiter': 100})
+    return result.x  # Optimized values of the parameters
 
+# optimized_params = optimize_parameters()
+# print(f"Optimized Parameters: {optimized_params}")

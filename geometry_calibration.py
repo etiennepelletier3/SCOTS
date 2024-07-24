@@ -209,7 +209,7 @@ if aruco_marker_captured.lower() == 'y':
     img = cv2.imread(camera_pose_path)
     img, center, rm_vec, tm_vec, marker_px_size = poseEstimation(img, printed_marker_size, camera_matrix, dist_coeffs)
     Omx, Omy = center
-    scamerapx = printed_marker_size / marker_px_size # mm per pixel
+    scamerapx = (printed_marker_size / marker_px_size) * 1e3 # mm per pixel 
 
     resized_image = cv2.resize(img, (800, 600))  # Set the desired size
     cv2.imshow('Pose', resized_image)
