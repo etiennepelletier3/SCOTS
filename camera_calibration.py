@@ -12,7 +12,7 @@ SQUARES_HORIZONTALLY = 4            # number of squares horizontally
 LENGTH_PX = 1080                    # size of the board in pixels
 MARGIN_PX = 50                      # size of the margin in pixels
 SQUARE_LENGTH = (((SQUARES_HORIZONTALLY/SQUARES_VERTICALLY)*LENGTH_PX - 2*MARGIN_PX)/SQUARES_HORIZONTALLY)*sscreenpx*0.001   # square side length (m)
-print(SQUARE_LENGTH)
+print("Square length: ", SQUARE_LENGTH)
 MARKER_LENGTH = 0.025               # ArUco marker side length (m)
 TEST = 3
 CALIB_DIR_PATH = f'Calibration data/Test {TEST}/' # path to the folder with images
@@ -125,19 +125,35 @@ def save_intrinsic_parameters(camera_matrix, dist_coeffs, sensor, lens):
 charuco = create_ChArUco_board()
 
 # Initialize the camera
-gain, exposure_time, framerate = ueye.adjust_camera_parameters(charuco)
+cv2.namedWindow("ChArUco", cv2.WINDOW_AUTOSIZE)
+cv2.moveWindow("ChArUco", 0, 0)
+cv2.imshow("ChArUco", charuco)
+gain, exposure_time, framerate = ueye.adjust_camera_parameters()
 hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+ueye.set_gain(hCam, gain)
+ueye.set_exposure(hCam, exposure_time)
+ueye.set_framerate(hCam, framerate)
 
 # Capture a frame for each pose
 nb_poses = 15
+cv2.imshow("ChArUco", charuco)
 for i in range(nb_poses):
-    cv2.imshow("ChArUco", charuco)
-    cv2.waitKey(100)
-    frame = ueye.capture_frame(hCam, width, height)
-    cv2.imshow("Camera", frame)
-    cv2.waitKey(0)
-    cv2.imwrite(CALIB_DIR_PATH + f'intrinsic_{i}.png', frame)
-    cv2.destroyAllWindows()
+    
+    while True:
+        frame = ueye.capture_frame(hCam, width, height)
+        frame = cv2.resize(frame, (640, 480))
+        cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
+        cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
+        cv2.imshow("Camera", frame)
+        
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('s'):
+            cv2.imwrite(CALIB_DIR_PATH + f'intrinsic_{i}.png', frame)
+            print(f"Image {i} saved")
+            cv2.destroyWindow("Camera")
+            break
+        elif key == ord('q'):
+            quit()
 ueye.ueye.is_ExitCamera(hCam)
 
 # Get intrinsic parameters

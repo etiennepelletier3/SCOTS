@@ -145,6 +145,10 @@ def screen_pose(pose_imgs_path, marker_size, camera_matrix, dist_coeffs):
     
     return rs_mtx, ts_vec
 
+def mouse_callback(event, x, y, flags, param):
+    global save_img
+    if event == cv2.EVENT_RBUTTONDOWN:  # Middle mouse button pressed
+        save_img = True
 
 # Define the paths
 TEST = 3
@@ -177,25 +181,43 @@ printed_marker_size = 0.04969 # 49.69 mm
 
 # Initialize the camera
 marker = create_aruco_marker(marker_side, margin, flip=True)
+cv2.namedWindow("ArUco Marker", cv2.WINDOW_AUTOSIZE)
+cv2.moveWindow("ArUco Marker", 0, 0)
 cv2.imshow("ArUco Marker", marker)
 gain, exposure_time, framerate = ueye.adjust_camera_parameters()
 hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+ueye.set_gain(hCam, gain)
+ueye.set_exposure(hCam, exposure_time)
+ueye.set_framerate(hCam, framerate)
 
 # Find screen pose
 print("...")
 print("Screen pose measurement started.")
 print("Take 3 different poses of the mirror and press 's'")
 marker = create_aruco_marker(marker_side, margin, flip=True)
+cv2.namedWindow("ArUco Marker", cv2.WINDOW_AUTOSIZE)
+# Set the mouse callback function
+cv2.setMouseCallback('ArUco Marker', mouse_callback)
+save_img = False
 for i in range(3):
-    cv2.imshow("ArUco Marker", marker)
-    cv2.waitKey(100)
-    frame = ueye.capture_frame(hCam, width, height)
-    cv2.imshow("Camera", frame)
-    print(f"Press any key to capture pose {i+1}")
-    cv2.waitKey(0)
-    cv2.imwrite(calibration_data_path + f'pose{i+1}.png', frame)
-    print(f"Pose {i+1} captured.")
-    cv2.destroyAllWindows()
+    print(f"Right click to capture pose {i+1}")
+    while True:
+        cv2.moveWindow("ArUco Marker", 0, 0)
+        cv2.imshow("ArUco Marker", marker)
+        frame = ueye.capture_frame(hCam, width, height)
+        frame = cv2.resize(frame, (640, 480))
+        cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
+        cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
+        cv2.imshow("Camera", frame)
+        if save_img:
+            cv2.imwrite(calibration_data_path + f'pose{i+1}.png', frame)
+            print(f"Pose {i+1} captured.")
+            save_img = False
+            break
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            quit()
+cv2.destroyAllWindows()
+    
 rs_mtx, ts_vec = screen_pose(calibration_data_path, marker_size, camera_matrix, dist_coeffs)
 print("Screen pose measurement completed")
 print("...")
@@ -204,7 +226,24 @@ print("...")
 
 print("Zero phase point detection started.")
 print("Place the mirror to its permanent pose and take a picture of the zero phase point marker.")
-create_aruco_marker(marker_side, margin, flip=True)
+marker = create_aruco_marker(marker_side, margin, flip=True)
+cv2.namedWindow("ArUco Marker", cv2.WINDOW_AUTOSIZE)
+while True:
+    cv2.moveWindow("ArUco Marker", 0, 0)
+    cv2.imshow("ArUco Marker", marker)
+    frame = ueye.capture_frame(hCam, width, height)
+    frame = cv2.resize(frame, (640, 480))
+    cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
+    cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
+    cv2.imshow("Camera", frame)
+    if save_img:
+        cv2.imwrite(zero_phase_path, frame)
+        print("Zero phase point marker captured.")
+        save_img = False
+        cv2.destroyAllWindows()
+        break
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        quit()
 zero_phase_img = cv2.imread(zero_phase_path)
 zero_phase_img, zero_phase_center, _, _, _ = poseEstimation(zero_phase_img, marker_size, camera_matrix, dist_coeffs)
 zero_phase_x, zero_phase_y = zero_phase_center
@@ -219,21 +258,32 @@ print("...")
 
 print("Mirror center and pose measurement started.")
 print("Place the ArUco marker centered onto the mirror")
-aruco_marker_captured = input("Has the ArUco marker been captured? (y/n): ")
-if aruco_marker_captured.lower() == 'y':
-    img = cv2.imread(camera_pose_path)
-    img, center, rm_vec, tm_vec, marker_px_size = poseEstimation(img, printed_marker_size, camera_matrix, dist_coeffs)
-    Omx, Omy = center
-    scamerapx = (printed_marker_size / marker_px_size) * 1e3 # mm per pixel 
+cv2.setMouseCallback("Camera", mouse_callback)
+while True:
+    frame = ueye.capture_frame(hCam, width, height)
+    frame = cv2.resize(frame, (800, 600))
+    cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
+    cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
+    cv2.imshow("Camera", frame)
+    key = cv2.waitKey(1) & 0xFF
+    if save_img:
+        cv2.imwrite(camera_pose_path, frame)
+        print("Mirror marker captured.")
+        cv2.destroyAllWindows()
+        break
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        quit()
+img = cv2.imread(camera_pose_path)
+img, center, rm_vec, tm_vec, marker_px_size = poseEstimation(img, printed_marker_size, camera_matrix, dist_coeffs)
+Omx, Omy = center
+scamerapx = (printed_marker_size / marker_px_size) * 1e3 # mm per pixel 
 
-    resized_image = cv2.resize(img, (800, 600))  # Set the desired size
-    cv2.imshow('Pose', resized_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    print("Mirror pose and center measurement completed.")
-    print("Remove the ArUco marker")
-else:
-    print("Please capture the ArUco marker before proceeding.")
+resized_image = cv2.resize(img, (800, 600))  # Set the desired size
+cv2.imshow('Mirror Pose', resized_image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+print("Mirror pose and center measurement completed.")
+print("Remove the ArUco marker")
 
 print("...")
 

@@ -26,6 +26,9 @@ def pattern(pat_w, pat_h, nb_shifts, pxperfrng, Osx, Osy):
     
     gain, exposure_time, framerate = ueye.adjust_camera_parameters(fringe_calib)
     hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+    ueye.set_gain(hCam, gain)
+    ueye.set_exposure(hCam, exposure_time)
+    ueye.set_framerate(hCam, framerate)
 
     # Capture the fringe patterns
     for phase in phases:

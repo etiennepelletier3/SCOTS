@@ -2,7 +2,7 @@ from pyueye import ueye
 import numpy as np
 import cv2
 
-def initialize_camera(exposure_time=33.0, gain=100, framerate=30.0):
+def initialize_camera(exposure_time, gain, framerate):
     # Initialize the camera
     hCam = ueye.HIDS(0)
     ret = ueye.is_InitCamera(hCam, None)
@@ -97,8 +97,8 @@ def adjust_contrast(image, alpha=1.5, beta=0):
     adjusted = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
     return adjusted
 
-def adjust_camera_parameters(ScreenImg):
-    exposure_time = 50.0  # Set your desired exposure time here (in milliseconds)
+def adjust_camera_parameters():
+    exposure_time = 375.0  # Set your desired exposure time here (in milliseconds)
     gain = 100           # Set your desired gain here
     framerate = 1.0       # Set your desired framerate here (in fps)
     # contrast_alpha = 1.5   # Set your desired contrast adjustment factor here
@@ -109,9 +109,11 @@ def adjust_camera_parameters(ScreenImg):
         while True:
             frame = capture_frame(hCam, width, height)
             # frame = adjust_contrast(frame, alpha=contrast_alpha, beta=contrast_beta)
-            resized_frame = cv2.resize(frame, (640, 480))
-            cv2.imshow("Setup Image", ScreenImg)
-            cv2.imshow("Camera", resized_frame)
+            frame = cv2.resize(frame, (640, 480))
+            cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
+            cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
+            
+            cv2.imshow("Camera", frame)
 
             # Capture keyboard events
             key = cv2.waitKey(1) & 0xFF
@@ -125,8 +127,8 @@ def adjust_camera_parameters(ScreenImg):
                 print(f"Gain set: {gain}")
             elif key == ord('e'):
                 exposure_time += 25.0
-                if exposure_time > 500.0:
-                    exposure_time = 500.0
+                if exposure_time > 400.0:
+                    exposure_time = 400.0
                 set_exposure(hCam, exposure_time)
                 print(f"Exposure time set: {exposure_time} ms")
             elif key == ord('b'):
@@ -160,9 +162,18 @@ def adjust_camera_parameters(ScreenImg):
         # Release the camera and close OpenCV windows
         ueye.is_ExitCamera(hCam)
         cv2.destroyAllWindows()
+        print("Gain set: ", gain)
+        print("Exposure time set: ", exposure_time)
+        print("Framerate set: ", framerate)
         return gain, exposure_time, framerate
     
 
 if __name__ == "__main__":
-    adjust_camera_parameters()
+    gain, exposure_time, framerate = adjust_camera_parameters()
+    hCam, rect_aoi, width, height = initialize_camera(exposure_time, gain, framerate)
+    frame = capture_frame(hCam, width, height)
+    cv2.imshow("Camera", frame)
+    cv2.waitKey(0)
+    ueye.is_ExitCamera(hCam)
+    cv2.destroyAllWindows()
 

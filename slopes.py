@@ -129,12 +129,12 @@ uwrp_phase_y = np.ma.array(uwrp_phase_y, mask=~mask)
 
 if manual_geometry:
     # Define the parameters
-    xm0 = 0.0010983523035546735
-    ym0 = -0.006166640536640525
-    zm0 = 0.6446248975662893
-    xs0 = 0.6516130693249402
-    ys0 = 0.042220644356549965
-    zs0 = 0.001
+    xm0 = 0.0195
+    ym0 = 0.0
+    zm0 = 0.61
+    xs0 = 0.33
+    ys0 = 0.01
+    zs0 = -0.07
 
 else:
     xm0 = tm_vec[0][0] * 1e3 # Convert to mm
