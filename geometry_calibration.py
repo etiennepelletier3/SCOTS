@@ -3,6 +3,8 @@ import cv2
 import os
 import json
 import scipy
+import ueye
+
 ARUCO_DICT = cv2.aruco.DICT_4X4_50  # dictionary ID
 
 def create_aruco_marker(size, margin, flip=False):
@@ -11,13 +13,8 @@ def create_aruco_marker(size, margin, flip=False):
     marker = cv2.copyMakeBorder(marker, margin, margin, margin, margin, cv2.BORDER_CONSTANT, value=(255, 255, 255))
     if flip:
         marker = cv2.flip(marker, 1)
-    cv2.imshow("ArUco Marker", marker)
-    cv2.waitKey(0)
-    if cv2.waitKey(0) & 0xFF == ord('s'):
-        # cv2.imwrite('aruco_marker.png', marker)
-        cv2.destroyAllWindows()
-    else:
-        quit()
+    return marker
+
 
 def aruco_pose(img, markerLength, camera_matrix, dist_coeffs):
     undist_img = cv2.undistort(img, camera_matrix, dist_coeffs)
@@ -148,13 +145,15 @@ def screen_pose(pose_imgs_path, marker_size, camera_matrix, dist_coeffs):
     
     return rs_mtx, ts_vec
 
+
 # Define the paths
-measurement_data_path = 'Measurement data/Test 2/'
-calibration_data_path = 'Calibration data/Test 2/'
-camera_pose_path = 'Calibration data/Test 2/mirror_pose.png'
-zero_phase_path = 'Calibration data/Test 2/zero_phase.png'
-params_path = 'Results/Test 2/params.json'
-results_path = 'Results/Test 2/'
+TEST = 3
+measurement_data_path = f'Measurement data/Test {TEST}/'
+calibration_data_path = f'Calibration data/Test {TEST}/'
+camera_pose_path = f'Calibration data/Test {TEST}/mirror_pose.png'
+zero_phase_path = f'Calibration data/Test {TEST}/zero_phase.png'
+params_path = f'Results/Test {TEST}/params.json'
+results_path = f'Results/Test {TEST}/'
 intrinsics_path = 'Calibration data/EO-3112C_25mm-F1.4_params.json'
 
 # Load calibration parameters from JSON file
@@ -176,11 +175,27 @@ print(f"Marker side: {marker_side}")
 marker_size = (marker_side * sscreenpx) / 1000
 printed_marker_size = 0.04969 # 49.69 mm
 
+# Initialize the camera
+marker = create_aruco_marker(marker_side, margin, flip=True)
+cv2.imshow("ArUco Marker", marker)
+gain, exposure_time, framerate = ueye.adjust_camera_parameters()
+hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+
 # Find screen pose
 print("...")
 print("Screen pose measurement started.")
 print("Take 3 different poses of the mirror and press 's'")
-create_aruco_marker(marker_side, margin, flip=True)
+marker = create_aruco_marker(marker_side, margin, flip=True)
+for i in range(3):
+    cv2.imshow("ArUco Marker", marker)
+    cv2.waitKey(100)
+    frame = ueye.capture_frame(hCam, width, height)
+    cv2.imshow("Camera", frame)
+    print(f"Press any key to capture pose {i+1}")
+    cv2.waitKey(0)
+    cv2.imwrite(calibration_data_path + f'pose{i+1}.png', frame)
+    print(f"Pose {i+1} captured.")
+    cv2.destroyAllWindows()
 rs_mtx, ts_vec = screen_pose(calibration_data_path, marker_size, camera_matrix, dist_coeffs)
 print("Screen pose measurement completed")
 print("...")

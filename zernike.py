@@ -28,11 +28,12 @@ def crop_to_unmasked(masked_array):
     
     return cropped_array
 
+TEST = 3
 # Define the paths
-measurement_data_path = 'Measurement data/Test 2/'
-calibration_data_path = 'Calibration data/Test 2/'
-params_path = 'Results/Test 2/params.json'
-results_path = 'Results/Test 2/'
+measurement_data_path = f'Measurement data/Test {TEST}/'
+calibration_data_path = f'Calibration data/Test {TEST}/'
+params_path = f'Results/Test {TEST}/params.json'
+results_path = f'Results/Test {TEST}/'
 
 # Load parameters from JSON file
 with open(params_path, "r") as file:
@@ -44,7 +45,7 @@ mask_center_x = json_data['mask_center_x']
 mask_center_y = json_data['mask_center_y']
 
 
-surface = np.load("Results/Test 2/surface.npy")
+surface = np.load(results_path+"surface.npy")
 
 
 # Create the mask
@@ -80,10 +81,10 @@ plt.title('Zernike Coefficients')
 plt.show()
 
 # Remove the piston term
-coefficients[0] = 0
-coefficients[1] = 0
-coefficients[2] = 0
-coefficients[3] = 0
+# coefficients[0] = 0
+# coefficients[1] = 0
+# coefficients[2] = 0
+# coefficients[3] = 0
 
 # Reconstruct the surface using the fitted Zernike coefficients
 reconstructed_surface = phaseFromZernikes(coefficients, N)

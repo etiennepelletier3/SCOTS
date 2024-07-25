@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 import json
+import ueye
 
 # Enter setup parameters
 sscreenpx = 0.223
@@ -13,7 +14,8 @@ MARGIN_PX = 50                      # size of the margin in pixels
 SQUARE_LENGTH = (((SQUARES_HORIZONTALLY/SQUARES_VERTICALLY)*LENGTH_PX - 2*MARGIN_PX)/SQUARES_HORIZONTALLY)*sscreenpx*0.001   # square side length (m)
 print(SQUARE_LENGTH)
 MARKER_LENGTH = 0.025               # ArUco marker side length (m)
-CALIB_DIR_PATH = 'Calibration data/' # path to the folder with images
+TEST = 3
+CALIB_DIR_PATH = f'Calibration data/Test {TEST}/' # path to the folder with images
 
 # Create ChArUco board
 def create_ChArUco_board():
@@ -21,13 +23,7 @@ def create_ChArUco_board():
     board = cv2.aruco.CharucoBoard((SQUARES_VERTICALLY, SQUARES_HORIZONTALLY), SQUARE_LENGTH, MARKER_LENGTH, dictionary)
     size_ratio = SQUARES_HORIZONTALLY / SQUARES_VERTICALLY
     img = cv2.aruco.CharucoBoard.generateImage(board, (LENGTH_PX, int(LENGTH_PX*size_ratio)), marginSize=MARGIN_PX)
-    cv2.imshow("ChArUco", img)
-    cv2.waitKey(0)
-    if cv2.waitKey(0) & 0xFF == ord('s'):
-        cv2.imwrite(CALIB_DIR_PATH + 'ChAruco_board.bmp', img)
-        cv2.destroyAllWindows()
-    else:
-        cv2.destroyAllWindows()
+    return img
 
 def get_intrinsic_parameters():
     # Define the aruco dictionary and charuco board
@@ -125,19 +121,35 @@ def save_intrinsic_parameters(camera_matrix, dist_coeffs, sensor, lens):
     with open(file_path, 'w') as f:
         json.dump(data, f)
 
-create_ChArUco_board()
+# Create the ChArUco board
+charuco = create_ChArUco_board()
+
+# Initialize the camera
+gain, exposure_time, framerate = ueye.adjust_camera_parameters(charuco)
+hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+
+# Capture a frame for each pose
+nb_poses = 15
+for i in range(nb_poses):
+    cv2.imshow("ChArUco", charuco)
+    cv2.waitKey(100)
+    frame = ueye.capture_frame(hCam, width, height)
+    cv2.imshow("Camera", frame)
+    cv2.waitKey(0)
+    cv2.imwrite(CALIB_DIR_PATH + f'intrinsic_{i}.png', frame)
+    cv2.destroyAllWindows()
+ueye.ueye.is_ExitCamera(hCam)
+
+# Get intrinsic parameters
 camera_matrix, dist_coeffs = get_intrinsic_parameters()
+
+# Check pose detection
 check_pose_detection()
+
+# Save intrinsic parameters
 save_intrinsics = input("Do you want to save the intrinsic parameters? (y/n): ")
 if save_intrinsics.lower() == 'y':
     save_intrinsic_parameters(camera_matrix, dist_coeffs, 'EO-3112C', '25mm-F1.4')
 
 
-def load_intrinsic_parameters(sensor, lens):
-    file_path = CALIB_DIR_PATH + sensor + '_' + lens + '_params.json'
-    with open(file_path, 'r') as f:
-        data = json.load(f)
-        camera_matrix = np.array(data['camera_matrix'])
-        dist_coeffs = np.array(data['dist_coeffs'])
-    return camera_matrix, dist_coeffs
 

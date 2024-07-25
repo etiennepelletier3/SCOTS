@@ -5,16 +5,29 @@ from scipy.optimize import minimize
 from skimage.restoration import unwrap_phase
 import json
 import matplotlib.pyplot as plt
+import ueye
 
 
 def pattern(pat_w, pat_h, nb_shifts, pxperfrng, Osx, Osy):
+    # Image ID
+    img_id = 0
+
     # Phase shifts
     phases = np.linspace(0, 2*np.pi, nb_shifts)
 
     # Create the fringe patterns
     fringe_pattern_x = np.zeros((pat_h, pat_w), dtype=np.uint8)
     fringe_pattern_y = np.zeros((pat_h, pat_w), dtype=np.uint8)
+    fringe_calib = np.zeros((pat_h, pat_w), dtype=np.uint8)
 
+    # initialize and setup the camera
+    for x in range(pat_h):
+        fringe_calib[:, x] = 255 * (1 + np.sin(2*np.pi*(x-Osx)/pxperfrng + phase))/2
+    
+    gain, exposure_time, framerate = ueye.adjust_camera_parameters(fringe_calib)
+    hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+
+    # Capture the fringe patterns
     for phase in phases:
         for x in range(pat_h):
             fringe_pattern_x[:, x] = 255 * (1 + np.sin(2*np.pi*(x-Osx)/pxperfrng + phase))/2
@@ -24,11 +37,22 @@ def pattern(pat_w, pat_h, nb_shifts, pxperfrng, Osx, Osy):
 
         fringe_pattern_x = fringe_pattern_x.astype(np.uint8)
         fringe_pattern_y = fringe_pattern_y.astype(np.uint8)
-        
+ 
         cv2.imshow('Fringe Pattern x', fringe_pattern_x)
-        cv2.waitKey(0)
+        cv2.waitKey(500)
+        frame = ueye.capture_frame(hCam, width, height)
+        cv2.imwrite(f'{measurement_data_path}X{img_id:02}.png', frame)
+        cv2.destroyWindow('Fringe Pattern x')
+
         cv2.imshow('Fringe Pattern y', fringe_pattern_y)
-        cv2.waitKey(0)
+        cv2.waitKey(500)
+        frame = ueye.capture_frame(hCam, width, height)
+        cv2.imwrite(f'{measurement_data_path}Y{img_id:02}.png', frame)
+        cv2.destroyWindow('Fringe Pattern y')
+
+        img_id += 1
+    
+    ueye.ueye.is_ExitCamera(hCam)
 
 def create_mask(img_w, img_h, radius, center_x, center_y):
     mask = np.zeros((img_h, img_w), dtype=np.bool)
@@ -106,11 +130,12 @@ def calculate_wrapped_phase(mask, Ixs, Iys, wrp_phase_x, wrp_phase_y, theta, ini
 
     return wrp_phase_x, wrp_phase_y
 
+TEST = 3
 # Define the paths
-measurement_data_path = 'Measurement data/Test 2/'
-calibration_data_path = 'Calibration data/Test 2/'
-params_path = 'Results/Test 2/params.json'
-results_path = 'Results/Test 2/'
+measurement_data_path = f'Measurement data/Test {TEST}/'
+calibration_data_path = f'Calibration data/Test {TEST}/'
+params_path = f'Results/Test {TEST}/params.json'
+results_path = f'Results/Test {TEST}/'
 intrinsics_path = 'Calibration data/EO-3112C_25mm-F1.4_params.json'
 
 # Load parameters from JSON file

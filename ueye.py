@@ -97,27 +97,26 @@ def adjust_contrast(image, alpha=1.5, beta=0):
     adjusted = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
     return adjusted
 
-def main():
+def adjust_camera_parameters(ScreenImg):
     exposure_time = 50.0  # Set your desired exposure time here (in milliseconds)
     gain = 100           # Set your desired gain here
     framerate = 1.0       # Set your desired framerate here (in fps)
-    contrast_alpha = 1.5   # Set your desired contrast adjustment factor here
-    contrast_beta = 0      # Set your desired brightness adjustment factor here
+    # contrast_alpha = 1.5   # Set your desired contrast adjustment factor here
+    # contrast_beta = 0      # Set your desired brightness adjustment factor here
     hCam, rect_aoi, width, height = initialize_camera(exposure_time, gain, framerate)
-
-    cv2.namedWindow("Live Video", cv2.WINDOW_AUTOSIZE)
 
     try:
         while True:
             frame = capture_frame(hCam, width, height)
-            frame = adjust_contrast(frame, alpha=contrast_alpha, beta=contrast_beta)
+            # frame = adjust_contrast(frame, alpha=contrast_alpha, beta=contrast_beta)
             resized_frame = cv2.resize(frame, (640, 480))
-            cv2.imshow("Live Video", resized_frame)
+            cv2.imshow("Setup Image", ScreenImg)
+            cv2.imshow("Camera", resized_frame)
 
             # Capture keyboard events
             key = cv2.waitKey(1) & 0xFF
 
-            # Update gain and exposure based on keyboard input
+            # Update gain, exposure, and frame rate based on keyboard input
             if key == ord('g'):
                 gain += 5
                 if gain > 100:
@@ -142,6 +141,18 @@ def main():
                     exposure_time = 0.0
                 set_exposure(hCam, exposure_time)
                 print(f"Exposure time set: {exposure_time} ms")
+            elif key == ord('f'):
+                framerate += 1.0
+                if framerate > 10.0:
+                    framerate = 10.0
+                set_framerate(hCam, framerate)
+                print(f"Framerate set: {framerate} fps")
+            elif key == ord('v'):
+                framerate -= 1.0
+                if framerate < 1.0:
+                    framerate = 1.0
+                set_framerate(hCam, framerate)
+                print(f"Framerate set: {framerate} fps")
             elif key == ord('q'):
                 break
 
@@ -149,7 +160,9 @@ def main():
         # Release the camera and close OpenCV windows
         ueye.is_ExitCamera(hCam)
         cv2.destroyAllWindows()
+        return gain, exposure_time, framerate
+    
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    adjust_camera_parameters()
 
