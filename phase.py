@@ -22,15 +22,18 @@ def pattern(pat_w, pat_h, nb_shifts, pxperfrng, Osx, Osy):
 
     # initialize and setup the camera
     for x in range(pat_h):
-        fringe_calib[:, x] = 255 * (1 + np.sin(2*np.pi*(x-Osx)/pxperfrng + phase))/2
+        fringe_calib[:, x] = 255 * (1 + np.sin(2*np.pi*(x-Osx)/pxperfrng))/2
     
-    gain, exposure_time, framerate = ueye.adjust_camera_parameters(fringe_calib)
-    hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+    cv2.namedWindow('Fringe Pattern', cv2.WINDOW_AUTOSIZE)
+    cv2.moveWindow('Fringe Pattern', 0, 0)
+    cv2.imshow('Fringe Pattern', fringe_calib)
+    gain, exposure_time, framerate, pixel_clock = ueye.adjust_camera_parameters()
+    hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate, pixel_clock)
     ueye.set_gain(hCam, gain)
     ueye.set_exposure(hCam, exposure_time)
     ueye.set_framerate(hCam, framerate)
 
-    # Capture the fringe patterns
+    # Capture the fringe patterns    
     for phase in phases:
         for x in range(pat_h):
             fringe_pattern_x[:, x] = 255 * (1 + np.sin(2*np.pi*(x-Osx)/pxperfrng + phase))/2
@@ -40,15 +43,18 @@ def pattern(pat_w, pat_h, nb_shifts, pxperfrng, Osx, Osy):
 
         fringe_pattern_x = fringe_pattern_x.astype(np.uint8)
         fringe_pattern_y = fringe_pattern_y.astype(np.uint8)
- 
+        cv2.namedWindow('Fringe Pattern x', cv2.WINDOW_AUTOSIZE)
+        cv2.moveWindow('Fringe Pattern x', 0, 0)
         cv2.imshow('Fringe Pattern x', fringe_pattern_x)
-        cv2.waitKey(500)
+        cv2.waitKey(350)
         frame = ueye.capture_frame(hCam, width, height)
         cv2.imwrite(f'{measurement_data_path}X{img_id:02}.png', frame)
         cv2.destroyWindow('Fringe Pattern x')
 
+        cv2.namedWindow('Fringe Pattern y', cv2.WINDOW_AUTOSIZE)
+        cv2.moveWindow('Fringe Pattern y', 0, 0)
         cv2.imshow('Fringe Pattern y', fringe_pattern_y)
-        cv2.waitKey(500)
+        cv2.waitKey(350)
         frame = ueye.capture_frame(hCam, width, height)
         cv2.imwrite(f'{measurement_data_path}Y{img_id:02}.png', frame)
         cv2.destroyWindow('Fringe Pattern y')

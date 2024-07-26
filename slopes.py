@@ -95,7 +95,7 @@ results_path = f'Results/Test {TEST}/'
 # Load parameters from JSON file
 with open(params_path, "r") as file:
     json_data = json.load(file)
-scamerapx = json_data['scamerapx'] * 1e3
+scamerapx = json_data['scamerapx']
 
 sscreenpx = json_data['sscreenpx']
 pxperfrng = json_data['pxperfrng']

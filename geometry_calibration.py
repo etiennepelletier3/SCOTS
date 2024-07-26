@@ -60,7 +60,7 @@ def poseEstimation(img, marker_size, camera_matrix, dist_coeffs):
             center_int = (int(center[0]), int(center[1]))
             # cv2.circle(undist_img, center_int, 10, (0, 0, 255), -1)
             cv2.aruco.drawDetectedMarkers(undist_img, corners, borderColor=(0, 255, 0))
-            cv2.drawFrameAxes(undist_img, camera_matrix, dist_coeffs, rvec, tvec, length=0.01, thickness=5)
+            cv2.drawFrameAxes(undist_img, camera_matrix, dist_coeffs, rvec, tvec, length=marker_size/2, thickness=2)
 
     return undist_img, center, rvec, tvec, avg_pixel_length
 
@@ -175,8 +175,8 @@ sscreenpx = json_data['sscreenpx'] # Screen pixel pitch (mm per pixel)
 
 margin = 225
 marker_side = pat_w - margin*2
-print(f"Marker side: {marker_side}")
 marker_size = (marker_side * sscreenpx) / 1000
+print(f"Marker size: {marker_size}")
 printed_marker_size = 0.04969 # 49.69 mm
 
 # Initialize the camera
@@ -184,11 +184,12 @@ marker = create_aruco_marker(marker_side, margin, flip=True)
 cv2.namedWindow("ArUco Marker", cv2.WINDOW_AUTOSIZE)
 cv2.moveWindow("ArUco Marker", 0, 0)
 cv2.imshow("ArUco Marker", marker)
-gain, exposure_time, framerate = ueye.adjust_camera_parameters()
-hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+gain, exposure_time, framerate, pixel_clock = ueye.adjust_camera_parameters()
+hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate, pixel_clock)
 ueye.set_gain(hCam, gain)
 ueye.set_exposure(hCam, exposure_time)
 ueye.set_framerate(hCam, framerate)
+ueye.set_pixel_clock(hCam, pixel_clock)
 
 # Find screen pose
 print("...")
@@ -205,17 +206,17 @@ for i in range(3):
         cv2.moveWindow("ArUco Marker", 0, 0)
         cv2.imshow("ArUco Marker", marker)
         frame = ueye.capture_frame(hCam, width, height)
-        frame = cv2.resize(frame, (640, 480))
+        rsz_frame = cv2.resize(frame, (640, 480))
         cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
         cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
-        cv2.imshow("Camera", frame)
+        cv2.imshow("Camera", rsz_frame)
         if save_img:
             cv2.imwrite(calibration_data_path + f'pose{i+1}.png', frame)
             print(f"Pose {i+1} captured.")
             save_img = False
             break
         if cv2.waitKey(1) & 0xFF == ord('q'):
-            quit()
+            break
 cv2.destroyAllWindows()
     
 rs_mtx, ts_vec = screen_pose(calibration_data_path, marker_size, camera_matrix, dist_coeffs)
@@ -228,14 +229,15 @@ print("Zero phase point detection started.")
 print("Place the mirror to its permanent pose and take a picture of the zero phase point marker.")
 marker = create_aruco_marker(marker_side, margin, flip=True)
 cv2.namedWindow("ArUco Marker", cv2.WINDOW_AUTOSIZE)
+cv2.setMouseCallback('ArUco Marker', mouse_callback)
 while True:
     cv2.moveWindow("ArUco Marker", 0, 0)
     cv2.imshow("ArUco Marker", marker)
     frame = ueye.capture_frame(hCam, width, height)
-    frame = cv2.resize(frame, (640, 480))
+    rsz_frame = cv2.resize(frame, (640, 480))
     cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
     cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
-    cv2.imshow("Camera", frame)
+    cv2.imshow("Camera", rsz_frame)
     if save_img:
         cv2.imwrite(zero_phase_path, frame)
         print("Zero phase point marker captured.")
@@ -243,7 +245,7 @@ while True:
         cv2.destroyAllWindows()
         break
     if cv2.waitKey(1) & 0xFF == ord('q'):
-        quit()
+        break
 zero_phase_img = cv2.imread(zero_phase_path)
 zero_phase_img, zero_phase_center, _, _, _ = poseEstimation(zero_phase_img, marker_size, camera_matrix, dist_coeffs)
 zero_phase_x, zero_phase_y = zero_phase_center
@@ -258,13 +260,14 @@ print("...")
 
 print("Mirror center and pose measurement started.")
 print("Place the ArUco marker centered onto the mirror")
+cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
 cv2.setMouseCallback("Camera", mouse_callback)
+
 while True:
     frame = ueye.capture_frame(hCam, width, height)
-    frame = cv2.resize(frame, (800, 600))
-    cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
+    rsz_frame = cv2.resize(frame, (800, 600))
     cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
-    cv2.imshow("Camera", frame)
+    cv2.imshow("Camera", rsz_frame)
     key = cv2.waitKey(1) & 0xFF
     if save_img:
         cv2.imwrite(camera_pose_path, frame)
@@ -275,6 +278,8 @@ while True:
         quit()
 img = cv2.imread(camera_pose_path)
 img, center, rm_vec, tm_vec, marker_px_size = poseEstimation(img, printed_marker_size, camera_matrix, dist_coeffs)
+print(f"m_rvec: {rm_vec}")
+print(f"m_tvec: {tm_vec}")
 Omx, Omy = center
 scamerapx = (printed_marker_size / marker_px_size) * 1e3 # mm per pixel 
 

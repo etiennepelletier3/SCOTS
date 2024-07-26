@@ -2,7 +2,7 @@ from pyueye import ueye
 import numpy as np
 import cv2
 
-def initialize_camera(exposure_time, gain, framerate):
+def initialize_camera(exposure_time, gain, framerate, pixel_clock):
     # Initialize the camera
     hCam = ueye.HIDS(0)
     ret = ueye.is_InitCamera(hCam, None)
@@ -37,6 +37,9 @@ def initialize_camera(exposure_time, gain, framerate):
     # Set the framerate
     set_framerate(hCam, framerate)
 
+    # Set the pixel clock
+    set_pixel_clock(hCam, pixel_clock)
+
     return hCam, rect_aoi, width, height
 
 def set_exposure(hCam, exposure_time):
@@ -45,12 +48,14 @@ def set_exposure(hCam, exposure_time):
     ret = ueye.is_Exposure(hCam, ueye.IS_EXPOSURE_CMD_SET_EXPOSURE, exposure, ueye.sizeof(exposure))
     if ret != ueye.IS_SUCCESS:
         raise Exception("Failed to set exposure time")
+    print(f"Exposure time set: {exposure_time} ms")
 
 def set_gain(hCam, gain):
     # Set the master gain
     ret = ueye.is_SetHardwareGain(hCam, gain, ueye.IS_IGNORE_PARAMETER, ueye.IS_IGNORE_PARAMETER, ueye.IS_IGNORE_PARAMETER)
     if ret != ueye.IS_SUCCESS:
         raise Exception("Failed to set gain")
+    print(f"Gain set: {gain}")
 
 def set_framerate(hCam, framerate):
     # Set the framerate
@@ -60,6 +65,14 @@ def set_framerate(hCam, framerate):
     if ret != ueye.IS_SUCCESS:
         raise Exception("Failed to set framerate")
     print(f"Actual framerate set: {new_framerate.value} fps")
+
+def set_pixel_clock(hCam, pixel_clock):
+    # Set the pixel clock
+    clock = ueye.UINT(pixel_clock)
+    ret = ueye.is_PixelClock(hCam, ueye.IS_PIXELCLOCK_CMD_SET, clock, ueye.sizeof(clock))
+    if ret != ueye.IS_SUCCESS:
+        raise Exception("Failed to set pixel clock")
+    print(f"Pixel clock set to: {pixel_clock} MHz")
 
 def capture_frame(hCam, width, height):
     # Allocate memory for the image
@@ -90,20 +103,13 @@ def capture_frame(hCam, width, height):
 
     return frame
 
-def adjust_contrast(image, alpha=1.5, beta=0):
-    # Adjust the contrast of the image
-    # alpha > 1 increases contrast, 0 < alpha < 1 decreases contrast
-    # beta adds brightness
-    adjusted = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-    return adjusted
 
 def adjust_camera_parameters():
     exposure_time = 375.0  # Set your desired exposure time here (in milliseconds)
     gain = 100           # Set your desired gain here
     framerate = 1.0       # Set your desired framerate here (in fps)
-    # contrast_alpha = 1.5   # Set your desired contrast adjustment factor here
-    # contrast_beta = 0      # Set your desired brightness adjustment factor here
-    hCam, rect_aoi, width, height = initialize_camera(exposure_time, gain, framerate)
+    pixel_clock = 10      # Set your desired pixel clock here (in MHz)
+    hCam, rect_aoi, width, height = initialize_camera(exposure_time, gain, framerate, pixel_clock)
 
     try:
         while True:
@@ -125,24 +131,22 @@ def adjust_camera_parameters():
                     gain = 100
                 set_gain(hCam, gain)
                 print(f"Gain set: {gain}")
-            elif key == ord('e'):
-                exposure_time += 25.0
-                if exposure_time > 400.0:
-                    exposure_time = 400.0
-                set_exposure(hCam, exposure_time)
-                print(f"Exposure time set: {exposure_time} ms")
             elif key == ord('b'):
                 gain -= 5
                 if gain < 0:
                     gain = 0
                 set_gain(hCam, gain)
                 print(f"Gain set: {gain}")
+            elif key == ord('e'):
+                exposure_time += 10.0
+                if exposure_time > 600.0:
+                    exposure_time = 600.0
+                set_exposure(hCam, exposure_time)
             elif key == ord('d'):
                 exposure_time -= 25.0
-                if exposure_time < 0.0:
-                    exposure_time = 0.0
+                if exposure_time < 0.2:
+                    exposure_time = 0.2
                 set_exposure(hCam, exposure_time)
-                print(f"Exposure time set: {exposure_time} ms")
             elif key == ord('f'):
                 framerate += 1.0
                 if framerate > 10.0:
@@ -155,6 +159,16 @@ def adjust_camera_parameters():
                     framerate = 1.0
                 set_framerate(hCam, framerate)
                 print(f"Framerate set: {framerate} fps")
+            elif key == ord('o'):
+                pixel_clock += 1
+                if pixel_clock > 43:
+                    pixel_clock = 43
+                set_pixel_clock(hCam, pixel_clock)
+            elif key == ord('l'):
+                pixel_clock -= 1
+                if pixel_clock < 5:
+                    pixel_clock = 5
+                set_pixel_clock(hCam, pixel_clock)
             elif key == ord('q'):
                 break
 
@@ -165,15 +179,11 @@ def adjust_camera_parameters():
         print("Gain set: ", gain)
         print("Exposure time set: ", exposure_time)
         print("Framerate set: ", framerate)
-        return gain, exposure_time, framerate
+        return gain, exposure_time, framerate, pixel_clock
     
 
 if __name__ == "__main__":
-    gain, exposure_time, framerate = adjust_camera_parameters()
-    hCam, rect_aoi, width, height = initialize_camera(exposure_time, gain, framerate)
-    frame = capture_frame(hCam, width, height)
-    cv2.imshow("Camera", frame)
-    cv2.waitKey(0)
-    ueye.is_ExitCamera(hCam)
-    cv2.destroyAllWindows()
+    gain, exposure_time, framerate, pixel_clock = adjust_camera_parameters()
+    hCam, rect_aoi, width, height = initialize_camera(exposure_time, gain, framerate, pixel_clock)
+    
 
