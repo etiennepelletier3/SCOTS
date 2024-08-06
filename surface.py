@@ -103,48 +103,99 @@ h, w = slope_x.shape
 mask = create_mask(w, h, mask_radius, mask_center_x, mask_center_y)
 gradientMaskEroded = mask.copy()
 
-lambda_ = 1e-6
-z0 = np.zeros_like(slope_x)
-solver = 'pcg'
-precond = 'ichol'
+# Apply the mask to the slope arrays
+slope_x = np.ma.array(slope_x, mask=~mask)
+slope_y = np.ma.array(slope_y, mask=~mask)
 
-p = -slope_y
-q = slope_x
-p[np.isnan(p)] = 0
-q[np.isnan(q)] = 0
+def trapezoidal_zonal_integration(x_slopes, y_slopes):
+    # Assuming x_slopes and y_slopes are 2D numpy arrays of the same shape
+    rows, cols = x_slopes.shape
+    surface = np.zeros((rows, cols))
+    
+    # Integrate x_slopes along the x-axis
+    for i in range(1, cols):
+        surface[:, i] = surface[:, i-1] + 0.5 * (x_slopes[:, i-1] + x_slopes[:, i])
+    
+    # Integrate y_slopes along the y-axis
+    for j in range(1, rows):
+        surface[j, :] = surface[j-1, :] + 0.5 * (y_slopes[j-1, :] + y_slopes[j, :])
+    
+    return surface
 
-print('Doing quadratic integration')
+def southwell_algorithm(x_slopes, y_slopes, mask, iterations=1000, tolerance=1e-6):
+    rows, cols = x_slopes.shape
+    surface = np.ma.array(np.zeros((rows, cols)), mask=mask)
+    iteration = 0
+    for _ in range(iterations):
+        print(iteration)
+        max_delta = 0
+        
+        # Update surface heights based on x_slopes
+        for i in range(rows):
+            for j in range(1, cols):
+                if not mask[i, j] and not mask[i, j-1]:
+                    delta = x_slopes[i, j-1] - (surface[i, j] - surface[i, j-1])
+                    surface[i, j] += delta
+                    max_delta = max(max_delta, abs(delta))
+        
+        # Update surface heights based on y_slopes
+        for i in range(1, rows):
+            for j in range(cols):
+                if not mask[i, j] and not mask[i-1, j]:
+                    delta = y_slopes[i-1, j] - (surface[i, j] - surface[i-1, j])
+                    surface[i, j] += delta
+                    max_delta = max(max_delta, abs(delta))
+        iteration += 1
+        if max_delta < tolerance:
+            break
+        
+    return surface
 
-surface_quadratic = smooth_integration(p, q, gradientMaskEroded, lambda_, z0, solver, precond)
 
-print('Doing Mumford-Shah integration')
+surface_trap = trapezoidal_zonal_integration(slope_x, slope_y)
+surface_south = southwell_algorithm(slope_x, slope_y, mask)
+# lambda_ = 1e-6
+# z0 = np.zeros_like(slope_x)
+# solver = 'pcg'
+# precond = 'ichol'
 
-zinit = surface_quadratic
-zinit[np.isnan(zinit)] = 0
-mu = 45
-epsilon = 0.001
-tol = 1e-8
-maxit = 1000
+# p = -slope_y
+# q = slope_x
+# p[np.isnan(p)] = 0
+# q[np.isnan(q)] = 0
 
-surface = mumford_shah_integration(p, q, gradientMaskEroded, lambda_, z0, mu, epsilon, maxit, tol, zinit)
+# print('Doing quadratic integration')
+
+# surface_quadratic = smooth_integration(p, q, gradientMaskEroded, lambda_, z0, solver, precond)
+
+# print('Doing Mumford-Shah integration')
+
+# zinit = surface_quadratic
+# zinit[np.isnan(zinit)] = 0
+# mu = 45
+# epsilon = 0.001
+# tol = 1e-8
+# maxit = 1000
+
+# surface = mumford_shah_integration(p, q, gradientMaskEroded, lambda_, z0, mu, epsilon, maxit, tol, zinit)
 
 plt.figure()
 plt.subplot(1, 2, 1)
-plt.imshow(surface_quadratic, cmap='jet')
+plt.imshow(surface_trap, cmap='jet')
 clb = plt.colorbar()
 clb.ax.set_title('mm')
-plt.title('Surface w/ Quadratic Integration')
+plt.title('Surface w/ trap')
 
 plt.subplot(1, 2, 2)
-plt.imshow(surface, cmap='jet')
+plt.imshow(surface_south, cmap='jet')
 clb = plt.colorbar()
 clb.ax.set_title('mm')
-plt.title('Surface w/ Mumford-Shah Integration')
+plt.title('Surface w/ Southwell')
 
 plt.show()
 
 # Save the surface
-np.save(results_path+"surface.npy", surface.data)
+# np.save(results_path+"surface.npy", surface.data)
 
 
 

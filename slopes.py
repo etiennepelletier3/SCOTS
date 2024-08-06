@@ -173,7 +173,7 @@ slope_y = np.ma.array(slope_y, mask=~mask)
 slope_x = slope_x * scamerapx
 slope_y = slope_y * scamerapx
 
-plot_slope_3D = False
+plot_slope_3D = True
 # Plot the x and y slope
 plt.figure()
 plt.subplot(1, 2, 1)
