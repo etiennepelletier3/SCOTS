@@ -105,10 +105,10 @@ def capture_frame(hCam, width, height):
 
 
 def adjust_camera_parameters():
-    exposure_time = 375.0  # Set your desired exposure time here (in milliseconds)
+    exposure_time = 275.0  # Set your desired exposure time here (in milliseconds)
     gain = 100           # Set your desired gain here
     framerate = 1.0       # Set your desired framerate here (in fps)
-    pixel_clock = 10      # Set your desired pixel clock here (in MHz)
+    pixel_clock = 17      # Set your desired pixel clock here (in MHz)
     hCam, rect_aoi, width, height = initialize_camera(exposure_time, gain, framerate, pixel_clock)
 
     try:

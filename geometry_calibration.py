@@ -151,14 +151,14 @@ def mouse_callback(event, x, y, flags, param):
         save_img = True
 
 # Define the paths
-TEST = 3
+TEST = 4
 measurement_data_path = f'Measurement data/Test {TEST}/'
 calibration_data_path = f'Calibration data/Test {TEST}/'
 camera_pose_path = f'Calibration data/Test {TEST}/mirror_pose.png'
 zero_phase_path = f'Calibration data/Test {TEST}/zero_phase.png'
 params_path = f'Results/Test {TEST}/params.json'
 results_path = f'Results/Test {TEST}/'
-intrinsics_path = 'Calibration data/EO-3112C_25mm-F1.4_params.json'
+intrinsics_path = calibration_data_path+'EO-3112C_25mm-F1.4_params.json'
 
 # Load calibration parameters from JSON file
 with open(intrinsics_path, 'r') as file: # Read the JSON file

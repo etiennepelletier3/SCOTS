@@ -4,7 +4,9 @@ import os
 import json
 import ueye
 
+
 # Enter setup parameters
+TEST = 4
 sscreenpx = 0.223
 ARUCO_DICT = cv2.aruco.DICT_4X4_50  # dictionary ID
 SQUARES_VERTICALLY = 5              # number of squares vertically
@@ -14,7 +16,7 @@ MARGIN_PX = 50                      # size of the margin in pixels
 SQUARE_LENGTH = (((SQUARES_HORIZONTALLY/SQUARES_VERTICALLY)*LENGTH_PX - 2*MARGIN_PX)/SQUARES_HORIZONTALLY)*sscreenpx*0.001   # square side length (m)
 print("Square length: ", SQUARE_LENGTH)
 MARKER_LENGTH = 0.025               # ArUco marker side length (m)
-TEST = 3
+
 CALIB_DIR_PATH = f'Calibration data/Test {TEST}/' # path to the folder with images
 
 # Create ChArUco board
@@ -94,7 +96,7 @@ def detect_pose(image, camera_matrix, dist_coeffs):
 
             # If pose estimation is successful, draw the axis and save the rvec and tvec
             if retval:
-                cv2.drawFrameAxes(undistorted_image, camera_matrix, dist_coeffs, rvec, tvec, length=0.1, thickness=10)
+                cv2.drawFrameAxes(undistorted_image, camera_matrix, dist_coeffs, rvec, tvec, length=0.1, thickness=1)
                 rvec, tvec = rvec, tvec
     return undistorted_image, rvec, tvec
 
@@ -128,11 +130,13 @@ charuco = create_ChArUco_board()
 cv2.namedWindow("ChArUco", cv2.WINDOW_AUTOSIZE)
 cv2.moveWindow("ChArUco", 0, 0)
 cv2.imshow("ChArUco", charuco)
-gain, exposure_time, framerate = ueye.adjust_camera_parameters()
-hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate)
+gain, exposure_time, framerate, pixel_clock = ueye.adjust_camera_parameters()
+hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate, pixel_clock)
 ueye.set_gain(hCam, gain)
+
 ueye.set_exposure(hCam, exposure_time)
 ueye.set_framerate(hCam, framerate)
+ueye.set_pixel_clock(hCam, pixel_clock)
 
 # Capture a frame for each pose
 nb_poses = 15

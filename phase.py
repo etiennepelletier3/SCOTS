@@ -139,13 +139,13 @@ def calculate_wrapped_phase(mask, Ixs, Iys, wrp_phase_x, wrp_phase_y, theta, ini
 
     return wrp_phase_x, wrp_phase_y
 
-TEST = 3
+TEST = 4
 # Define the paths
 measurement_data_path = f'Measurement data/Test {TEST}/'
 calibration_data_path = f'Calibration data/Test {TEST}/'
 params_path = f'Results/Test {TEST}/params.json'
 results_path = f'Results/Test {TEST}/'
-intrinsics_path = 'Calibration data/EO-3112C_25mm-F1.4_params.json'
+intrinsics_path = calibration_data_path+'EO-3112C_25mm-F1.4_params.json'
 
 # Load parameters from JSON file
 with open(params_path, "r") as file:
