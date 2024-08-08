@@ -6,7 +6,10 @@ import ueye
 
 
 # Enter setup parameters
-TEST = 4
+test_id = input("Enter test ID: ")
+TEST = int(test_id)
+print(f"Test {TEST} selected")
+
 sscreenpx = 0.223
 ARUCO_DICT = cv2.aruco.DICT_4X4_50  # dictionary ID
 SQUARES_VERTICALLY = 5              # number of squares vertically
@@ -55,7 +58,6 @@ def get_intrinsic_parameters():
             charuco_retval, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(marker_corners, marker_ids, image, board)
             if charuco_retval and len(charuco_corners) > 3:
                 all_charuco_corners.append(charuco_corners)
-                
                 all_charuco_ids.append(charuco_ids)
 
     print(f"Number of images used for calibration: {len(all_charuco_corners)}")
@@ -96,7 +98,8 @@ def detect_pose(image, camera_matrix, dist_coeffs):
 
             # If pose estimation is successful, draw the axis and save the rvec and tvec
             if retval:
-                cv2.drawFrameAxes(undistorted_image, camera_matrix, dist_coeffs, rvec, tvec, length=0.1, thickness=1)
+                cv2.aruco.drawDetectedMarkers(undistorted_image, marker_corners, marker_ids)
+                cv2.drawFrameAxes(undistorted_image, camera_matrix, dist_coeffs, rvec, tvec, length=0.05, thickness=2)
                 rvec, tvec = rvec, tvec
     return undistorted_image, rvec, tvec
 
@@ -113,7 +116,7 @@ def check_pose_detection():
         pose_image, rvec, tvec = detect_pose(image, camera_matrix, dist_coeffs)
 
         # Show the image
-        resized_image = cv2.resize(pose_image, (1000, 800))  # Set the desired size
+        resized_image = cv2.resize(pose_image, (800, 640))  # Set the desired size
         cv2.imshow('Pose Image', resized_image)
         cv2.waitKey(0)
 
@@ -122,46 +125,62 @@ def save_intrinsic_parameters(camera_matrix, dist_coeffs, sensor, lens):
     data = {'camera_matrix': camera_matrix.tolist(), 'dist_coeffs': dist_coeffs.tolist()}
     with open(file_path, 'w') as f:
         json.dump(data, f)
-
+    print(f"Intrinsic parameters saved to {file_path}")
 # Create the ChArUco board
 charuco = create_ChArUco_board()
 
-# Initialize the camera
-cv2.namedWindow("ChArUco", cv2.WINDOW_AUTOSIZE)
-cv2.moveWindow("ChArUco", 0, 0)
-cv2.imshow("ChArUco", charuco)
-gain, exposure_time, framerate, pixel_clock = ueye.adjust_camera_parameters()
-hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate, pixel_clock)
-ueye.set_gain(hCam, gain)
-
-ueye.set_exposure(hCam, exposure_time)
-ueye.set_framerate(hCam, framerate)
-ueye.set_pixel_clock(hCam, pixel_clock)
-
-# Capture a frame for each pose
-nb_poses = 15
-cv2.imshow("ChArUco", charuco)
-for i in range(nb_poses):
-    
+# Ask the user to choose manual or automatic camera calibration
+manual_calib = input("Do you want to take pictures for calibration manually? (y/n): ")
+if manual_calib.lower() == 'y':
+    cv2.namedWindow("ChArUco", cv2.WINDOW_AUTOSIZE)
+    cv2.moveWindow("ChArUco", 0, 0)
+    cv2.imshow("ChArUco", charuco)
+    print("Take pictures of the ChArUco board, then press 's' to continue")
     while True:
-        frame = ueye.capture_frame(hCam, width, height)
-        frame = cv2.resize(frame, (640, 480))
-        cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
-        cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
-        cv2.imshow("Camera", frame)
-        
         key = cv2.waitKey(1) & 0xFF
         if key == ord('s'):
-            cv2.imwrite(CALIB_DIR_PATH + f'intrinsic_{i}.png', frame)
-            print(f"Image {i} saved")
-            cv2.destroyWindow("Camera")
+            cv2.destroyWindow("ChArUco")
             break
-        elif key == ord('q'):
-            quit()
-ueye.ueye.is_ExitCamera(hCam)
+else:
+    print("Automatic calibration selected")
+    # Initialize the camera
+    cv2.namedWindow("ChArUco", cv2.WINDOW_AUTOSIZE)
+    cv2.moveWindow("ChArUco", 0, 0)
+    cv2.imshow("ChArUco", charuco)
+    gain, exposure_time, framerate, pixel_clock = ueye.adjust_camera_parameters()
+    hCam, rect_aoi, width, height = ueye.initialize_camera(exposure_time, gain, framerate, pixel_clock)
+    ueye.set_gain(hCam, gain)
+
+    ueye.set_exposure(hCam, exposure_time)
+    ueye.set_framerate(hCam, framerate)
+    ueye.set_pixel_clock(hCam, pixel_clock)
+
+    # Capture a frame for each pose
+    nb_poses = 15
+    cv2.imshow("ChArUco", charuco)
+    for i in range(nb_poses):
+        
+        while True:
+            frame = ueye.capture_frame(hCam, width, height)
+            frame = cv2.resize(frame, (640, 480))
+            cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
+            cv2.setWindowProperty("Camera", cv2.WND_PROP_TOPMOST, 1)
+            cv2.imshow("Camera", frame)
+            
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('s'):
+                cv2.imwrite(CALIB_DIR_PATH + f'intrinsic_{i:02}.png', frame)
+                print(f"Image {i} saved")
+                cv2.destroyWindow("Camera")
+                break
+            elif key == ord('q'):
+                quit()
+    ueye.ueye.is_ExitCamera(hCam)
 
 # Get intrinsic parameters
 camera_matrix, dist_coeffs = get_intrinsic_parameters()
+print(f"Camera matrix: {camera_matrix}")
+print(f"Distortion coefficients: {dist_coeffs}")
 
 # Check pose detection
 check_pose_detection()

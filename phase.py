@@ -139,7 +139,9 @@ def calculate_wrapped_phase(mask, Ixs, Iys, wrp_phase_x, wrp_phase_y, theta, ini
 
     return wrp_phase_x, wrp_phase_y
 
-TEST = 4
+test_id = input("Enter test ID: ")
+TEST = int(test_id)
+print(f"Test {TEST} selected")
 # Define the paths
 measurement_data_path = f'Measurement data/Test {TEST}/'
 calibration_data_path = f'Calibration data/Test {TEST}/'

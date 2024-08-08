@@ -66,7 +66,9 @@ def mumford_shah_integration(p, q, mask, lambda_, z0, mu, epsilon, maxit, tol, z
 
     return z
 
-TEST = 4
+test_id = input("Enter test ID: ")
+TEST = int(test_id)
+print(f"Test {TEST} selected")
 # Define the paths
 measurement_data_path = f'Measurement data/Test {TEST}/'
 calibration_data_path = f'Calibration data/Test {TEST}/'
@@ -154,48 +156,54 @@ def southwell_algorithm(x_slopes, y_slopes, mask, iterations=1000, tolerance=1e-
 
 surface_trap = trapezoidal_zonal_integration(slope_x, slope_y)
 surface_south = southwell_algorithm(slope_x, slope_y, mask)
-# lambda_ = 1e-6
-# z0 = np.zeros_like(slope_x)
-# solver = 'pcg'
-# precond = 'ichol'
+lambda_ = 1e-6
+z0 = np.zeros_like(slope_x)
+solver = 'pcg'
+precond = 'ichol'
 
-# p = -slope_y
-# q = slope_x
-# p[np.isnan(p)] = 0
-# q[np.isnan(q)] = 0
+p = -slope_y
+q = slope_x
+p[np.isnan(p)] = 0
+q[np.isnan(q)] = 0
 
-# print('Doing quadratic integration')
+print('Doing quadratic integration')
 
-# surface_quadratic = smooth_integration(p, q, gradientMaskEroded, lambda_, z0, solver, precond)
+surface_quadratic = smooth_integration(p, q, gradientMaskEroded, lambda_, z0, solver, precond)
 
-# print('Doing Mumford-Shah integration')
+print('Doing Mumford-Shah integration')
 
-# zinit = surface_quadratic
-# zinit[np.isnan(zinit)] = 0
-# mu = 45
-# epsilon = 0.001
-# tol = 1e-8
-# maxit = 1000
+zinit = surface_quadratic
+zinit[np.isnan(zinit)] = 0
+mu = 45
+epsilon = 0.001
+tol = 1e-8
+maxit = 1000
 
-# surface = mumford_shah_integration(p, q, gradientMaskEroded, lambda_, z0, mu, epsilon, maxit, tol, zinit)
+surface_mumf = mumford_shah_integration(p, q, gradientMaskEroded, lambda_, z0, mu, epsilon, maxit, tol, zinit)
 
 plt.figure()
-plt.subplot(1, 2, 1)
+plt.subplot(1, 3, 1)
 plt.imshow(surface_trap, cmap='jet')
 clb = plt.colorbar()
 clb.ax.set_title('mm')
 plt.title('Surface w/ trap')
 
-plt.subplot(1, 2, 2)
+plt.subplot(1, 3, 2)
 plt.imshow(surface_south, cmap='jet')
 clb = plt.colorbar()
 clb.ax.set_title('mm')
 plt.title('Surface w/ Southwell')
 
+plt.subplot(1, 3, 3)
+plt.imshow(surface_mumf, cmap='jet')
+clb = plt.colorbar()
+clb.ax.set_title('mm')
+plt.title('Surface w/ Mumford-Shah')
+
 plt.show()
 
 # Save the surface
-# np.save(results_path+"surface.npy", surface.data)
+np.save(results_path+"surface.npy", surface_mumf.data)
 
 
 

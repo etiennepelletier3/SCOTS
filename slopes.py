@@ -85,7 +85,9 @@ def crop_to_unmasked(masked_array):
     
     return cropped_array
 
-TEST = 4
+test_id = input("Enter test ID: ")
+TEST = int(test_id)
+print(f"Test {TEST} selected")
 # Define the paths
 measurement_data_path = f'Measurement data/Test {TEST}/'
 calibration_data_path = f'Calibration data/Test {TEST}/'

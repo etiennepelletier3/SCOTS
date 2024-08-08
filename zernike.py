@@ -28,7 +28,9 @@ def crop_to_unmasked(masked_array):
     
     return cropped_array
 
-TEST = 3
+test_id = input("Enter test ID: ")
+TEST = int(test_id)
+print(f"Test {TEST} selected")
 # Define the paths
 measurement_data_path = f'Measurement data/Test {TEST}/'
 calibration_data_path = f'Calibration data/Test {TEST}/'
@@ -81,10 +83,10 @@ plt.title('Zernike Coefficients')
 plt.show()
 
 # Remove the piston term
-# coefficients[0] = 0
-# coefficients[1] = 0
-# coefficients[2] = 0
-# coefficients[3] = 0
+coefficients[0] = 0
+coefficients[1] = 0
+coefficients[2] = 0
+coefficients[3] = 0
 
 # Reconstruct the surface using the fitted Zernike coefficients
 reconstructed_surface = phaseFromZernikes(coefficients, N)
