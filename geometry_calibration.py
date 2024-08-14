@@ -132,10 +132,12 @@ def mouse_callback(event, x, y, flags, param):
     if event == cv2.EVENT_RBUTTONDOWN:  # Middle mouse button pressed
         save_img = True
 
-# Define the paths
+# Ask the user to enter the test ID
 test_id = input("Enter test ID: ")
 TEST = int(test_id)
 print(f"Test {TEST} selected")
+
+# Define the paths
 measurement_data_path = f'Measurement data/Test {TEST}/'
 calibration_data_path = f'Calibration data/Test {TEST}/'
 camera_pose_path = f'Calibration data/Test {TEST}/mirror_pose.png'
@@ -230,6 +232,7 @@ print("...")
 
 print("Zero phase point detection started.")
 print("Place the mirror to its permanent pose and take a picture of the zero phase point marker.")
+print(f"Right click to capture the zero phase point marker")
 marker = create_aruco_marker(marker_side, margin, flip=True)
 cv2.namedWindow("ArUco Marker", cv2.WINDOW_AUTOSIZE)
 if auto_calib:
@@ -278,6 +281,7 @@ print("Place the ArUco marker centered onto the mirror")
 cv2.namedWindow("Camera", cv2.WINDOW_AUTOSIZE)
 
 if auto_calib:
+    print("Right click to capture the mirror marker")
     cv2.setMouseCallback("Camera", mouse_callback)
     while True:
         frame = ueye.capture_frame(hCam, width, height)

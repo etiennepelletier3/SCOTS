@@ -1,9 +1,12 @@
-from aotools.functions.zernike import zernikeArray, phaseFromZernikes
+from aotools.functions.zernike import zernikeArray, phaseFromZernikes, makegammas
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+from zernpy import ZernPol
+from math import factorial
+import cv2
 
-TEST = 4
+TEST = 5
 # Define the paths
 measurement_data_path = f'Measurement data/Test {TEST}/'
 calibration_data_path = f'Calibration data/Test {TEST}/'
@@ -64,101 +67,127 @@ h, w = slope_x.shape
 mask = create_mask(w, h, mask_radius, mask_center_x, mask_center_y)
 
 # Apply the mask to the slope arrays
-slope_x = np.ma.array(slope_x, mask=~mask)
-slope_y = np.ma.array(slope_y, mask=~mask)
-slope_x = crop_to_unmasked(slope_x)
-slope_y = crop_to_unmasked(slope_y)
-slope_x = np.ma.filled(slope_x, np.nan)
-slope_y = np.ma.filled(slope_y, np.nan)
+slope_x_whole = np.ma.array(slope_x, mask=~mask)
+slope_y_whole = np.ma.array(slope_y, mask=~mask)
+slope_x_masked = crop_to_unmasked(slope_x_whole)
+slope_y_masked = crop_to_unmasked(slope_y_whole)
+
+slope_x = np.ma.filled(slope_x_masked, np.nan)
+slope_y = np.ma.filled(slope_y_masked, np.nan)
 
 
-def southwell_algorithm(x_slopes, y_slopes, iterations=1000, tolerance=1e-6):
-    rows, cols = x_slopes.shape
-    surface = np.zeros((rows, cols))
-    
-    it=0
-    for _ in range(iterations):
-        print(it)
-        max_delta = 0
-        
-        # Update surface heights based on x_slopes
-        for i in range(rows):
-            for j in range(1, cols):
-                if not np.isnan(x_slopes[i, j-1]):
-                    delta = x_slopes[i, j-1] - (surface[i, j] - surface[i, j-1])
-                    surface[i, j] += delta
-                    max_delta = max(max_delta, abs(delta))
-        
-        # Update surface heights based on y_slopes
-        for i in range(1, rows):
-            for j in range(cols):
-                if not np.isnan(y_slopes[i-1, j]):
-                    delta = y_slopes[i-1, j] - (surface[i, j] - surface[i-1, j])
-                    surface[i, j] += delta
-                    max_delta = max(max_delta, abs(delta))
-        
-        if max_delta < tolerance:
-            break
-        
-        it += 1
-    return surface
+# Create zernike modes first derivatives maually
+N = slope_x.shape[0]
+# Step 1: Create a grid of x and y coordinates
+x = np.linspace(-1, 1, N)
+y = np.linspace(-1, 1, N)
+x, y = np.meshgrid(x, y)
+
+# Step 2: Convert (x, y) to polar coordinates (rho, theta)
+rho = np.sqrt(x**2 + y**2)
+theta = np.arctan2(y, x)
 
 
-def zernike_fit_slopes(x_slopes, y_slopes, zernike_order):
-    rows, cols = x_slopes.shape
-    x = np.linspace(-1, 1, cols)
-    y = np.linspace(-1, 1, rows)
-    X, Y = np.meshgrid(x, y)
-    rho, theta = np.sqrt(X**2 + Y**2), np.arctan2(Y, X)
-    
-    # Mask for the unit circle
-    mask = rho <= 1
-    
-    # Get Zernike modes
-    zernike_modes = zernikeArray(zernike_order, rows)
-    
-    # Flatten the arrays and mask
-    x_slopes_flat = x_slopes[mask]
-    y_slopes_flat = y_slopes[mask]
-    zernike_modes_flat = zernike_modes[:, mask]
-    
-    # Construct design matrix for x and y slopes
-    A_x = np.zeros((x_slopes_flat.size, zernike_modes.shape[0]))
-    A_y = np.zeros((y_slopes_flat.size, zernike_modes.shape[0]))
-    for i in range(zernike_modes.shape[0]):
-        A_x[:, i] = zernike_modes_flat[i] * X[mask]
-        A_y[:, i] = zernike_modes_flat[i] * Y[mask]
-    
-    # Concatenate the design matrices and slope arrays
-    A = np.vstack((A_x, A_y))
-    slopes = np.concatenate((x_slopes_flat, y_slopes_flat))
-    
-    # Solve for Zernike coefficients
-    zernike_coefficients, _, _, _ = np.linalg.lstsq(A, slopes, rcond=None)
-    
-    # Reconstruct the surface from the Zernike coefficients
-    surface = np.zeros_like(X)
-    for i in range(zernike_modes.shape[0]):
-        surface += zernike_coefficients[i] * zernike_modes[i]
-    
-    surface[~mask] = np.nan  # Mask out the outside region
-    
-    return surface
+# Step 3: Compute the gradient of the Zernike polynomial
+dz1_dx, dz1_dy = np.zeros_like(slope_x), np.zeros_like(slope_x)
+dz2_dx, dz2_dy = np.zeros_like(slope_x), np.ones_like(slope_x)*2
+dz3_dx, dz3_dy = np.ones_like(slope_x)*2, np.zeros_like(slope_x)
+dz4_dx, dz4_dy = 2*np.sqrt(6)*rho*np.sin(theta), 2*np.sqrt(6)*rho*np.cos(theta)
+dz5_dx, dz5_dy = 4*np.sqrt(3)*rho*np.cos(theta), 4*np.sqrt(3)*rho*np.sin(theta)
+dz6_dx, dz6_dy = 2*np.sqrt(6)*rho*np.cos(theta), -2*np.sqrt(6)*rho*np.sin(theta)
+dz7_dx, dz7_dy = 3*np.sqrt(8)*rho**2*np.sin(2*theta), 3*np.sqrt(8)*rho**2**np.cos(2*theta)
+dz8_dx, dz8_dy = 3*np.sqrt(8)*rho**2*np.sin(2*theta), np.sqrt(8)*((6*rho**2 - 2) - (3*rho**2*(np.cos(2*theta))**2))
+dz9_dx, dz9_dy = np.sqrt(8)*((6*rho**2 - 2) + (3*rho**2*(np.cos(2*theta))**2)), 3*np.sqrt(8)*rho**2*np.sin(2*theta)
+dz10_dx, dz10_dy = 3*np.sqrt(8)*rho**2*np.cos(2*theta), -3*np.sqrt(8)*rho**2*np.sin(2*theta)
 
-# surface_south = southwell_algorithm(slope_x, slope_y, 100, 1e-6)
+# Step 4: create the Zernike gradient arrays
+dz_dx = [dz1_dx, dz2_dx, dz3_dx, dz4_dx, dz5_dx, dz6_dx, dz7_dx, dz8_dx, dz9_dx, dz10_dx]
+dz_dy = [dz1_dy, dz2_dy, dz3_dy, dz4_dy, dz5_dy, dz6_dy, dz7_dy, dz8_dy, dz9_dy, dz10_dy]
 
-surface_zern = zernike_fit_slopes(slope_x, slope_y, 20)
+dz_dx_masked = [np.ma.array(z, mask=np.isnan(slope_x)) for z in dz_dx]
+dz_dy_masked = [np.ma.array(z, mask=np.isnan(slope_x)) for z in dz_dy]
 
-# Plot the slopes
+# Step 5: Flatten the arrays
+dz_dx_flat = [z.flatten() for z in dz_dx_masked]
+dz_dy_flat = [z.flatten() for z in dz_dy_masked]
+
+slope_x_flat = slope_x_masked.flatten()
+slope_y_flat = slope_y_masked.flatten()
+
+# Step 6: Create the Slope matrix
+S = np.hstack((slope_x_flat, slope_y_flat)).T
+print(f"S shape = {S.shape}")
+
+# Step 7: Create the Zernike matrix
+A_list = []
+for i in range(len(dz_dx_flat)):
+    A_i = np.hstack((dz_dx_flat[i], dz_dy_flat[i])).T
+    A_list.append(A_i)
+
+A = np.vstack(A_list).T
+print(f"A shape = {A.shape}")
+
+# Step 8: Solve the linear system
+coefficients, _, _, _ = np.linalg.lstsq(A, S, rcond=None)
+print(coefficients)
+
+# Reconstruct the surface using the fitted Zernike coefficients
+reconstructed_surface = phaseFromZernikes(coefficients, N)
+
+# Derive the reconstructed surface to compare with the slopes
+slope_x_reconstructed = np.zeros_like(slope_x)
+slope_y_reconstructed = np.zeros_like(slope_x)
+
+# for i in range(len(dz_dx_masked)):
+#     slope_x_reconstructed += coefficients[i]*dz_dx_masked[i]
+#     slope_y_reconstructed += coefficients[i]*dz_dy_masked[i]
+
+rcd = dz_dx_masked[1]*coefficients[1] + dz_dx_masked[2]*coefficients[2] + dz_dx_masked[3]*coefficients[3] + dz_dx_masked[4]*coefficients[4] + dz_dx_masked[5]*coefficients[5] + dz_dx_masked[6]*coefficients[6] + dz_dx_masked[7]*coefficients[7] + dz_dx_masked[8]*coefficients[8] + dz_dx_masked[9]*coefficients[9]
 plt.figure()
 plt.subplot(1, 2, 1)
-plt.imshow(slope_y, cmap='jet')
+plt.imshow(dz_dx_masked[4], cmap='jet')
 plt.title('Slope X')
 plt.colorbar()
 
 plt.subplot(1, 2, 2)
-plt.imshow(surface_zern, cmap='jet')
+plt.imshow(slope_x, cmap='jet')
 plt.title('Slope Y')
 plt.colorbar()
 
 plt.show()
+
+slope_x_error = (slope_x_masked - slope_x_reconstructed)
+slope_y_error = (slope_y_masked - slope_y_reconstructed)
+
+# Plot the slopes
+# plt.figure()
+
+# plt.imshow(reconstructed_surface, cmap='jet')
+# plt.title('Surface')
+# plt.colorbar()
+
+# plt.show()
+
+# Plot the slopes
+# plt.figure()
+# plt.subplot(2, 2, 1)
+# plt.imshow(slope_x_masked, cmap='jet')
+# plt.title('Slope X')
+# plt.colorbar()
+
+# plt.subplot(2, 2, 2)
+# plt.imshow(slope_y_masked, cmap='jet')
+# plt.title('Slope Y')
+# plt.colorbar()
+
+# plt.subplot(2, 2, 3)
+# plt.imshow(slope_x_reconstructed, cmap='jet')
+# plt.title('Slope X Error')
+# plt.colorbar()
+
+# plt.subplot(2, 2, 4)
+# plt.imshow(slope_y_reconstructed, cmap='jet')
+# plt.title('Slope Y Error')
+# plt.colorbar()
+
+# plt.show()

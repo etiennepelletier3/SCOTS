@@ -61,18 +61,21 @@ surface = crop_to_unmasked(surface)
 
 # Define the parameters
 N = surface.shape[0]  # Size of the array
-noll_index = 20  # Number of Zernike modes to use
+noll_index = 10  # Number of Zernike modes to use
 
 # Create Zernike polynomials
 zernike_polynomials = zernikeArray(noll_index, N)
+print(zernike_polynomials.shape)
 
 # Flatten the height map and Zernike polynomials
 surface_flat = surface.flatten()
 zernike_flat = zernike_polynomials.reshape((noll_index, -1))
+print(zernike_flat.shape)
 
 # Fit the Zernike coefficients
 A = np.vstack(zernike_flat).T
 coefficients, _, _, _ = np.linalg.lstsq(A, surface_flat, rcond=None)
+print(coefficients)
 
 # Plot the histogram of the value associated with each Zernike mode
 modes = np.arange(1, noll_index + 1)
@@ -82,11 +85,11 @@ plt.ylabel('Coefficient Value')
 plt.title('Zernike Coefficients')
 plt.show()
 
-# Remove the piston term
-coefficients[0] = 0
-coefficients[1] = 0
-coefficients[2] = 0
-coefficients[3] = 0
+# Remove the terms
+# coefficients[0] = 0
+# coefficients[1] = 0
+# coefficients[2] = 0
+# coefficients[3] = 0
 
 # Reconstruct the surface using the fitted Zernike coefficients
 reconstructed_surface = phaseFromZernikes(coefficients, N)

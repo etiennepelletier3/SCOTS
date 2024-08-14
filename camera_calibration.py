@@ -5,11 +5,12 @@ import json
 import ueye
 
 
-# Enter setup parameters
+# Ask the user to choose the test ID
 test_id = input("Enter test ID: ")
 TEST = int(test_id)
 print(f"Test {TEST} selected")
 
+# Enter setup parameters
 sscreenpx = 0.223
 ARUCO_DICT = cv2.aruco.DICT_4X4_50  # dictionary ID
 SQUARES_VERTICALLY = 5              # number of squares vertically
@@ -22,7 +23,7 @@ MARKER_LENGTH = 0.025               # ArUco marker side length (m)
 
 CALIB_DIR_PATH = f'Calibration data/Test {TEST}/' # path to the folder with images
 
-# Create ChArUco board
+
 def create_ChArUco_board():
     dictionary = cv2.aruco.getPredefinedDictionary(ARUCO_DICT)
     board = cv2.aruco.CharucoBoard((SQUARES_VERTICALLY, SQUARES_HORIZONTALLY), SQUARE_LENGTH, MARKER_LENGTH, dictionary)
@@ -126,6 +127,7 @@ def save_intrinsic_parameters(camera_matrix, dist_coeffs, sensor, lens):
     with open(file_path, 'w') as f:
         json.dump(data, f)
     print(f"Intrinsic parameters saved to {file_path}")
+
 # Create the ChArUco board
 charuco = create_ChArUco_board()
 
@@ -143,6 +145,12 @@ if manual_calib.lower() == 'y':
             break
 else:
     print("Automatic calibration selected")
+    print("Press 'o' and 'l' to increase and decrease the clock frequency")
+    print("Press 'e' and 'd' to increase and decrease the exposure time")
+    print("Press 'g' and 'b' to increase and decrease the gain")
+    print("Press 'f' and 'v' to increase and decrease the framerate")
+    print("...")
+    print("Press 'q' to quit when done adjusting the camera parameters")
     # Initialize the camera
     cv2.namedWindow("ChArUco", cv2.WINDOW_AUTOSIZE)
     cv2.moveWindow("ChArUco", 0, 0)
@@ -157,6 +165,7 @@ else:
 
     # Capture a frame for each pose
     nb_poses = 15
+    print("Press 's' to save the images")
     cv2.imshow("ChArUco", charuco)
     for i in range(nb_poses):
         
