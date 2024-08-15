@@ -67,6 +67,13 @@ noll_index = 10  # Number of Zernike modes to use
 zernike_polynomials = zernikeArray(noll_index, N)
 print(zernike_polynomials.shape)
 
+for i in range(noll_index):
+    plt.figure()
+    plt.imshow(zernike_polynomials[i], cmap='jet')
+    plt.colorbar()
+    plt.title(f'Zernike Mode {i}')
+    plt.show()
+
 # Flatten the height map and Zernike polynomials
 surface_flat = surface.flatten()
 zernike_flat = zernike_polynomials.reshape((noll_index, -1))

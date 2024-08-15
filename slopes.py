@@ -171,7 +171,7 @@ slope_x, slope_y = surface_slope(n_mtx)
 slope_x = np.ma.array(slope_x, mask=~mask)
 slope_y = np.ma.array(slope_y, mask=~mask)
 
-# Multiply by the image grid spacing (scamerapx)
+# Multiply by the image grid spacing (scamerapx) to convert px to mm
 slope_x = slope_x * scamerapx
 slope_y = slope_y * scamerapx
 
