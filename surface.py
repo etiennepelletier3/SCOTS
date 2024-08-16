@@ -76,8 +76,8 @@ slope_x = np.ma.filled(slope_x_masked, np.nan)
 slope_y = np.ma.filled(slope_y_masked, np.nan)
 
 # Remove tip from the initial slopes
-slope_x -= np.mean(slope_x_masked)
-slope_y -= np.mean(slope_y_masked)
+# slope_x -= np.mean(slope_x_masked)
+# slope_y -= np.mean(slope_y_masked)
 
 
 # Create zernike modes first derivatives maually
@@ -163,11 +163,20 @@ for OSA_index in range(len(coefficients)):
 
 surface = ZernPol.sum_zernikes(coefficients, polynomials, R, Theta)
 
+
 plt.figure()
 plt.imshow(surface, cmap='jet')
 clb = plt.colorbar()
 clb.ax.set_title('mm')
 plt.title(f'Surface')
+plt.show()
+
+# Plot the histogram of the value associated with each Zernike mode
+modes = np.arange(len(coefficients))
+plt.bar(modes, coefficients)
+plt.xlabel('Zernike Mode')
+plt.ylabel('Coefficient Value')
+plt.title('Zernike Mode Coefficients')
 plt.show()
 
 # Derive the reconstructed surface to get the slopes
