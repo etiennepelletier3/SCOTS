@@ -51,6 +51,6 @@ This is the critical part where we take all the parameters and phase data we obt
 This final step reconstructs the SUT surface by fitting the slopes with the X and Y first derivatives of the first 21 zernike polynomials, than summing those zernike modes weighted by their coefficient found during fitting (This is really just solving a matrix equation, see https://doi.org/10.3390/math11183915) For simplicity, I manually entered the expressions of the zernike's first derivatives. Running *surface.py*, the surface of the SUT is reconstructed. An histogram of the weights of each zernike polynomial used for reconstruction is given. Finally, the slopes are recovered from the surface to validate the method. Since there is a problem somewhere in the code, this does not work currently.
 
 # For testing and troubleshooting
-**If you don't have a phase measuring deflectometry system at hands, you can still test and try to fix SCOTSpy by using the first 5 tests already made. Tests 1, 2 and 3 used a flat mirror SUT, and tests 4 and 5 used a concave SUT.**
+**If you don't have a phase measuring deflectometry system at hands, you can still test and try to fix SCOTSpy by using the first 5 tests already made. Tests 1, 2 and 3 used a flat mirror SUT, and tests 4 and 5 used a concave mirror SUT.**
 
 To contact me : etiennepelletier3@gmail.com
