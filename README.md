@@ -1,1 +1,4 @@
-https://www.mdpi.com/2227-7390/11/18/3915
+# SCOTSpy - Phase measuring deflectometry system
+
+## Description
+SCOTSpy is aimed at providing a fully functionnal phase measuring deflectometry system written in python code.
